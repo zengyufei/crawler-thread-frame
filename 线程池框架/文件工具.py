@@ -1,8 +1,13 @@
 import os
-import logging
+
+import sys
+sys.path.append('线程池框架')
+
+from 日志工具 import 日志
+logger = 日志('文件工具', 0)
 
 class 文件工具:
-    log = logging.getLogger(__name__)
+    log: 日志 = logger
 
     @classmethod
     def 清空记录文件(cls, 路径, 模块名):

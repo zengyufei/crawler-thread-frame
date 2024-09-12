@@ -1,14 +1,22 @@
 import threading
-import logging
+import sys
+sys.path.append('线程池框架')
+
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Any
+from 日志工具 import 日志
+from 文件工具 import 文件工具
+from 重试工具类 import 重试工具
 
 class 线程池框架:
-    def __init__(self, 线程数: int,
-                 运行开始: Callable[[Any], Any]=lambda _: None,
-                 运行结束: Callable[[Any], Any]=lambda _: None,
-                 循环任务: Callable[[Any], Any]=lambda _: None,
-                 跳出循环条件: Callable[[Any], bool]=lambda _: False):
+    def __init__(self,
+                 线程数: int,
+                 运行开始: Callable[[Any], Any] = lambda _: None,
+                 运行结束: Callable[[Any], Any] = lambda _: None,
+                 循环任务: Callable[[Any], Any] = lambda _: None,
+                 跳出循环条件: Callable[[Any], bool] = lambda _: False,
+                 日志级别=0
+                 ):
         self.线程数 = 线程数
         self.运行开始 = 运行开始
         self.运行结束 = 运行结束
@@ -16,6 +24,7 @@ class 线程池框架:
         self.跳出循环条件 = 跳出循环条件
         self.线程池执行器 = ThreadPoolExecutor(max_workers=线程数)
         self.锁 = threading.Lock()
+        self.日志级别 = 日志级别
         self.运行中任务 = 0
         self.已提交任务 = 0
         self.已完成任务 = 0
@@ -24,11 +33,13 @@ class 线程池框架:
         self.重试任务 = 0
         self.监控停止标志 = threading.Event()
 
+        self.log = 日志('线程池框架', 日志级别)
+
     def 监控(self):
         while True:
-            logging.info(f"运行中任务: {self.运行中任务}, 已提交任务: {self.已提交任务}, "
-                         f"完成任务: {self.已完成任务}, 失败任务: {self.失败任务}, "
-                         f"异常任务: {self.异常任务}, 重试任务: {self.重试任务}")
+            self.log.info(f"运行中任务: {self.运行中任务}, 已提交任务: {self.已提交任务}, "
+                        f"完成任务: {self.已完成任务}, 失败任务: {self.失败任务}, "
+                        f"异常任务: {self.异常任务}, 重试任务: {self.重试任务}")
             # if self.运行中任务 == 0 and self.已提交任务 == self.已完成任务 + self.失败任务:
             #     break
             if self.监控停止标志.is_set():
@@ -42,12 +53,14 @@ class 线程池框架:
         try:
             结果 = self.循环任务(参数)
             with self.锁:
-                self.已完成任务 += 1
+                if 结果:
+                    self.已完成任务 += 1
+                else:
+                    self.失败任务 += 1
         except Exception as 异常:
-            logging.error(f"任务执行异常: {str(异常)}")
+            self.log.error(f"任务执行异常: {str(异常)}")
             with self.锁:
                 self.异常任务 += 1
-                self.失败任务 += 1
         finally:
             with self.锁:
                 self.运行中任务 -= 1
@@ -59,6 +72,9 @@ class 线程池框架:
                 self.已提交任务 += 1
 
     def 运行(self, 参数: Any):
+        文件工具.log.设置日志级别(参数.日志级别)
+        重试工具.log.设置日志级别(参数.日志级别)
+
         监控线程 = threading.Thread(target=self.监控)
         监控线程.start()
 

@@ -1,8 +1,14 @@
-import logging
 import time
+import sys
+
+sys.path.append('线程池框架')
+
+from 日志工具 import 日志
+logger = 日志('重试工具', 0)
+
 
 class 重试工具:
-    log = logging.getLogger(__name__)
+    log: 日志 = logger
 
     @classmethod
     def 重试执行(cls, 操作, 最大重试次数=5, 超时时间=5):
